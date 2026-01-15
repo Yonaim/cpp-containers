@@ -25,7 +25,7 @@ namespace ft
 {
     // map은 tree의 thin wrapper
     template <class Key, class T, class Compare = std::less<Key>,
-              class Allocator = ft::allocator<ft::pair<const Key, T>>>
+              class Allocator = ft::allocator<ft::pair<const Key, T> > >
     class map
     {
       public:
