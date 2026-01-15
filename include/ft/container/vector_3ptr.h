@@ -1,9 +1,11 @@
 #ifndef FT_VECTOR_3PTR_H
 #define FT_VECTOR_3PTR_H
 
+#include "algorithm.h"
+#include "ft_memory.h"
 #include "iterator.h"
-#include "memory.h"
 #include "type_traits.h"
+#include "utility.h"
 
 /*
     - 포인터 버전
@@ -30,7 +32,7 @@ namespace ft
     // allcator의 instance가 없어도 OK
     // Empty class -> EBO 적용하여 0바이트
     template <class _Tp, class _Alloc>
-    class _Vector_alloc_base<_Tp, _Alloc, true>
+    class _Vector_alloc_base<_Tp, _Alloc, true> : private _Alloc
     {
       public:
         // TODO: Alloc_traits를 이용하는게 정석임
@@ -38,7 +40,7 @@ namespace ft
         typedef _Alloc allocator_type;
 
         allocator_type get_allocator() const { return allocator_type(); }
-        _Vector_alloc_base(const allocator_type &a) {}
+        _Vector_alloc_base(const allocator_type &a) { (void)a; }
 
       protected:
         _Tp *_allocate(size_t n) { return _Alloc::allocate(n); }
@@ -76,14 +78,17 @@ namespace ft
     template <class _Tp, class _Alloc>
     class _Vector_base : protected _Vector_alloc_base<_Tp, _Alloc, ft::is_empty<_Alloc>::value>
     {
-      protected:
-        _Tp *_start;
-        _Tp *_finish;
-        _Tp *_end_of_storage;
-
       private:
         typedef _Vector_alloc_base<_Tp, _Alloc, ft::is_empty<_Alloc>::value> _Base;
-        typedef typename _Base::allocator_type                               allocator_type;
+
+      protected:
+        typedef typename _Base::allocator_type allocator_type;
+        using _Base::_allocate;
+        using _Base::_deallocate;
+
+        _Tp *_start;
+        _Tp *_finish;         // start + size
+        _Tp *_end_of_storage; // start + capacity
 
         _Vector_base(const allocator_type &a) : _Base(a) {}
         _Vector_base(size_t n, const allocator_type &a) : _Base(a)
@@ -95,22 +100,41 @@ namespace ft
         ~_Vector_base() { _deallocate(_start, _end_of_storage - _start); }
     };
 
-    template <class _Tp, class _Alloc = ft::allocator<_Tp>>
-    class vector
+    template <class _Tp, class _Alloc = allocator<_Tp> >
+    class vector : protected _Vector_base<_Tp, _Alloc>
     {
+      private:
+        typedef _Vector_base<_Tp, _Alloc> _Base;
+
       public:
-        typedef _Tp                                         value_type;
-        typedef value_type                                 *pointer;
-        typedef const value_type                           *const_pointer;
-        typedef normal_iterator<pointer, vector_type>       iterator;
-        typedef normal_iterator<const_pointer, vector_type> const_iterator;
-        typedef value_type                                 &reference;
-        typedef const value_type                           &const_reference;
-        typedef size_t                                      size_type;
-        typedef ptrdiff_t                                   difference_type;
+        typedef _Tp               value_type;
+        typedef value_type       *pointer;
+        typedef const value_type *const_pointer;
+        typedef pointer           iterator;
+        typedef const_pointer     const_iterator;
+        typedef value_type       &reference;
+        typedef const value_type &const_reference;
+        typedef size_t            size_type;
+        typedef ptrdiff_t         difference_type;
+
+        typedef ft::reverse_iterator<iterator>       reverse_iterator;
+        typedef ft::reverse_iterator<const_iterator> const_reverse_iterator;
 
         typedef typename _Base::allocator_type allocator_type;
-        using _Base::get_allocator();
+        using _Base::get_allocator;
+
+      protected:
+        // 상속 받은 클래스로부터 using
+        /*
+            Base 클래스가 dependent base(템플릿 인자에 의존하는 클래스)이므로
+            컴파일러의 1단계 파싱에서 Base<T>::f는 탐색 대상에 들어가지 않는다
+            -> using을 써서 현재 스코프로 끌어온다
+        */
+        using _Base::_allocate;
+        using _Base::_deallocate;
+        using _Base::_end_of_storage;
+        using _Base::_finish;
+        using _Base::_start;
 
       public:
         // iterator
@@ -126,9 +150,15 @@ namespace ft
 
         // -------------------- Capacity -------------------- //
         size_type size() const { return size_type(end() - begin()); }
-        size_type max_size() const {}
-        size_type capacity() const { return const_iterator(_end_of_storage) - begin(); }
-        bool      empty() const { return begin() == end(); }
+        size_type max_size() const { return size_type(-1) / sizeof(_Tp); }
+        size_type capacity() const
+        {
+            // _end_of_storage - _start;를 반환해도 무방
+            // bvector와의 코드 통일성을 위해서 iterator로 감싼다
+            return size_type(const_iterator(_end_of_storage) - begin());
+        }
+        bool empty() const { return begin() == end(); }
+        void reserve(size_type n);
 
         // -------------------- Element access -------------------- //
 
@@ -157,20 +187,15 @@ namespace ft
         explicit vector(size_type n);
         // Copy constructor
         vector(const vector<_Tp, _Alloc> &x);
-        template <class InputIt>
-        vector(InputIt first, InputIt last, const Allocator &alloc = Allocator(),
-               typename ft::enable_if<!ft::is_integral<InputIt>::value, void>::type * = 0);
-
-        template <class _InputIterator>
-        vector(_InputIterator first, _InputIterator last,
-               const allocator_type &a = allocator_type());
+        template <class _InputIt>
+        vector(_InputIt first, _InputIt last, const allocator_type &alloc = allocator_type(),
+               typename ft::enable_if<!ft::is_integral<_InputIt>::value, void>::type * = 0);
 
         // Destructor
         ~vector();
 
         // Copy assignment operator
         vector<_Tp, _Alloc> &operator=(const vector<_Tp, _Alloc> &x);
-        void                 reserve(size_type n);
 
         // -------------------- Element access -------------------- //
         reference       front() { return *begin(); }
@@ -186,8 +211,9 @@ namespace ft
 
         iterator insert(iterator position, const _Tp &x);
         iterator insert(iterator position);
-        template <class _InputIterator>
-        void insert(iterator pos, _InputIterator first, _InputIterator last);
+        template <class _InputIt>
+        void insert(iterator pos, _InputIt first, _InputIt last,
+                    typename ft::enable_if<!ft::is_integral<_InputIt>::value, void>::type * = 0);
         void insert(iterator pos, size_type n, const _Tp &x);
 
         iterator erase(iterator position);
@@ -200,7 +226,21 @@ namespace ft
 
       private:
         /* ------------------ Internal private methods ------------------  */
-        void _range_check(size_type n) const;
+        void _construct(pointer p, const value_type &v) { this->get_allocator().construct(p, v); }
+        void _destroy(pointer p) { this->get_allocator().destroy(p); }
+        template <class _ForwardIterator>
+        pointer _allocate_and_copy(size_type n, _ForwardIterator first, _ForwardIterator last);
+        void    _range_check(size_type n) const;
+        template <class _InputIt>
+        void _range_initialize(_InputIt first, _InputIt last, input_iterator_tag);
+        template <class _InputIt>
+        void _range_initialize(_InputIt first, _InputIt last, forward_iterator_tag);
+        void _insert_aux(iterator pos, const _Tp &v);
+        template <class _InputIt>
+        void _insert_dispatch(iterator pos, _InputIt first, _InputIt last, ft::input_iterator_tag);
+        template <class _InputIt>
+        void _insert_dispatch(iterator pos, _InputIt first, _InputIt last,
+                              ft::forward_iterator_tag);
     };
 
     // -------------------- Non-member operators -------------------- //
