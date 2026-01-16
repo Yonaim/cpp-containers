@@ -87,7 +87,7 @@ namespace ft
         typedef _Tp    value_type;
 
         typedef
-            typename _Alloc::template rebind<_Rb_tree_node<value_type>>::other node_allocator_type;
+            typename _Alloc::template rebind<_Rb_tree_node<value_type> >::other node_allocator_type;
         typedef _Rb_tree_node<value_type>                                      node_type;
 
         allocator_type get_allocator() const { return allocator_type(_node_allocator); }
@@ -109,7 +109,7 @@ namespace ft
         typedef _Tp    value_type;
 
         typedef
-            typename _Alloc::template rebind<_Rb_tree_node<value_type>>::other node_allocator_type;
+            typename _Alloc::template rebind<_Rb_tree_node<value_type> >::other node_allocator_type;
         typedef _Rb_tree_node<value_type>                                      node_type;
 
         allocator_type get_allocator() const { return allocator_type(); }
@@ -154,7 +154,7 @@ namespace ft
 
     // Compare(x, y): x < y의 결과를 bool로 반환
     template <typename _Key, typename _Value, typename _KeyOfValue, typename _Compare,
-              typename _Alloc = ft::allocator<_Value>>
+              typename _Alloc = ft::allocator<_Value> >
     class _Rb_tree : protected _Rb_tree_base<_Value, _Alloc>
     {
         typedef _Rb_tree_base<_Value, _Alloc> _Base;
