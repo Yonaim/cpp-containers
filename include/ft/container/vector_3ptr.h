@@ -150,7 +150,7 @@ namespace ft
 
         // -------------------- Capacity -------------------- //
         size_type size() const { return size_type(end() - begin()); }
-        size_type max_size() const { return size_type(-1) / sizeof(_Tp); }
+        size_type max_size() const { return size_type(-1) / sizeof(_Tp) / 2; }
         size_type capacity() const
         {
             // _end_of_storage - _start;를 반환해도 무방
@@ -222,7 +222,11 @@ namespace ft
         void resize(size_type new_size, const _Tp &x);
         void resize(size_type new_size) { resize(new_size, _Tp()); }
 
-        void clear() { erase(begin(), end()); }
+        void clear()
+        {
+            destroy_range(begin(), end());
+            _finish = _start;
+        }
 
       private:
         /* ------------------ Internal private methods ------------------  */

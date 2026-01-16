@@ -2,6 +2,8 @@
 #define FT_VECTOR_3PTR_IMPL_H
 
 // #include "vector_3ptr.h"
+#include <iostream>
+#include <sstream>
 #include "ft_memory.h"
 
 /*
@@ -25,6 +27,7 @@ namespace ft
     vector<_Tp, _Alloc>::vector(size_type n, const _Tp &value, const allocator_type &a)
         : _Base(n, a)
     {
+
         _finish = ft::uninitialized_fill_n(_start, n, value);
     }
 
@@ -94,11 +97,12 @@ namespace ft
     {
         if (new_cap > capacity())
         {
+            size_t  old_size = size();
             pointer new_start = _allocate_and_copy(new_cap, _start, _finish);
             destroy_range(_start, _finish);
             _deallocate(_start, capacity());
             _start = new_start;
-            _finish = _start + size();
+            _finish = _start + old_size;
             _end_of_storage = _start + new_cap;
         }
     }
@@ -108,15 +112,35 @@ namespace ft
     template <class _Tp, class _Alloc>
     vector<_Tp, _Alloc> &vector<_Tp, _Alloc>::operator=(const vector<_Tp, _Alloc> &x)
     {
-        // 공간이 불충분한 경우: 재할당 및 객체 생성
-        // 공간은 충분하나 활성화된 원소 개수가 과다한 경우: 원본 객체 복사 및 초과분 destory
-        // 공간은 충분하나 활성화된 원소 개수가 적은 경우: 부족분 ft::uninitialized_copy 수행
+        /*
+        - 공간이 불충분한 경우: 재할당 및 객체 생성
+        - 공간은 충분
+            - 활성화된 원소 개수가 과다한 경우: 원본 객체 복사 및 초과분 destory
+            - 활성화된 원소 개수가 적은 경우: 부족분 ft::uninitialized_copy 수행
+        */
         if (&x != this)
         {
-            if (capacity() < x.size())
+            size_t x_size = x.size();
+            if (capacity() < x_size)
             {
-                pointer new_start = _allocate_and_copy(x.size(), x.begin(), x.end());
-                (void)new_start;
+                pointer new_start = _allocate_and_copy(x_size, x.begin(), x.end());
+                destroy_range(x.begin(), x.end());
+                _deallocate(_start, capacity());
+                _start = new_start;
+                _finish = new_start + x_size;
+                _end_of_storage = _finish;
+            }
+            else if (size() > x_size)
+            {
+                copy(x.begin(), x.end(), begin());
+                destroy_range(begin() + (size() - x_size), end());
+                _finish = _start + x_size;
+            }
+            else
+            {
+                ft::uninitialized_copy(x.begin() + size(), x.end(), begin() + size());
+                copy(x.begin(), x.begin() + size(), begin());
+                _finish = _start + x_size;
             }
         }
         return *this;
@@ -130,7 +154,6 @@ namespace ft
         // 맨 뒤에 삽입 -> 공간 충분할시 원소 미루기 (copy) 필요없음
         if (_finish != _end_of_storage)
         {
-
             _construct(_finish, x);
             ++_finish;
         }
@@ -177,15 +200,15 @@ namespace ft
     template <class _Tp, class _Alloc>
     typename vector<_Tp, _Alloc>::iterator vector<_Tp, _Alloc>::insert(iterator position)
     {
-        insert(position, _Tp());
+        return insert(position, _Tp());
     }
 
     // range insert
     template <class _Tp, class _Alloc>
     template <class _InputIt>
-    void
-    vector<_Tp, _Alloc>::insert(iterator pos, _InputIt first, _InputIt last,
-                                typename ft::enable_if<!ft::is_integral<_InputIt>::value, void>::type *)
+    void vector<_Tp, _Alloc>::insert(
+        iterator pos, _InputIt first, _InputIt last,
+        typename ft::enable_if<!ft::is_integral<_InputIt>::value, void>::type *)
     {
         // 한번만 읽을 수 있는 iterator인 경우: 하나씩 insert
         // 여러번 읽을 수 있는 iterator인 경우: ft::distance를 얻고 일괄 처리
@@ -193,35 +216,90 @@ namespace ft
         _insert_dispatch(pos, first, last, typename iterator_traits<_InputIt>::iterator_category());
     }
 
+    // 한번만 읽을 수 있는 iterator인 경우: 하나씩 insert
     template <class _Tp, class _Alloc>
     template <class _InputIt>
     void vector<_Tp, _Alloc>::_insert_dispatch(iterator pos, _InputIt first, _InputIt last,
                                                ft::input_iterator_tag)
     {
-        // 한번만 읽을 수 있는 iterator인 경우: 하나씩 insert
-        while (first != last)
-        {
-        }
+        for (; first != last; ++first, ++pos)
+            _insert_aux(pos, *first);
     }
 
+    // 여러번 읽을 수 있는 iterator인 경우: ft::distance를 얻고 일괄 처리
     template <class _Tp, class _Alloc>
     template <class _InputIt>
     void vector<_Tp, _Alloc>::_insert_dispatch(iterator pos, _InputIt first, _InputIt last,
                                                ft::forward_iterator_tag)
     {
-        // 여러번 읽을 수 있는 iterator인 경우: ft::distance를 얻고 일괄 처리
-        (void)pos;
-        (void)first;
-        (void)last;
+        size_t old_size = size();
+
+        difference_type n = ft::distance(first, last);
+        if (capacity() > old_size + n) // 공간 충분: pos 이후만 조작
+        {
+            // 기존 원소 뒤로 옮기기 (init도 겸함)
+            // input을 copy
+            ft::uninitialized_copy_backward(pos, end(), end() + n);
+            copy(first, last, pos);
+            _finish += n;
+        }
+        else // 공간 부족: 전체 재할당 및 복사
+        {
+            // 재할당하므로 복사시 겹침 걱정 안 해도 됨
+            size_t idx = ft::distance(begin(), pos);
+
+            // [start, pos)
+            pointer new_start = _allocate_and_copy(old_size + n, _start, pos);
+            // [pos, pos + n) : 주어진 값 copy
+            for (difference_type i = 0; i < n; ++i)
+                *(new_start + idx + i) = *(first + i);
+            // [pos + n, finish) : init + copy
+            ft::uninitialized_copy(pos, end(), new_start + n);
+
+            destroy_range(_start, _finish);
+            _deallocate(_start, capacity());
+
+            _start = new_start;
+            _finish = _start + old_size + n;
+            _end_of_storage = _finish;
+        }
     }
 
     // range insert
     template <class _Tp, class _Alloc>
     void vector<_Tp, _Alloc>::insert(iterator pos, size_type n, const _Tp &x)
     {
-        (void)pos;
-        (void)n;
-        (void)x;
+        size_t old_size = size();
+        if (capacity() > old_size + n) // 공간 충분: pos 이후만 조작
+        {
+            // 기존 원소 뒤로 옮기기 (init도 겸함)
+            // input을 copy
+            ft::uninitialized_copy_backward(pos, end(), pos + n);
+            for (size_t i = 0; i < n; ++i)
+                *(pos + i) = x;
+            _finish += n;
+        }
+        else // 공간 부족: 전체 재할당 및 복사
+        {
+
+            // 재할당하므로 복사시 겹침 걱정 안 해도 됨
+            size_t idx = ft::distance(begin(), pos);
+
+            // [start, pos)
+            pointer new_start = _allocate_and_copy(old_size + n, _start, pos);
+            // [pos, pos + n) : 주어진 값 copy
+            for (size_t i = 0; i < n; ++i)
+                *(new_start + idx + i) = x;
+            // [pos + n, finish) : init + copy
+            ft::uninitialized_copy(pos, end(), new_start + n);
+
+            destroy_range(_start, _finish);
+            _deallocate(_start, capacity());
+
+            _start = new_start;
+            _finish = _start + old_size + n;
+            _end_of_storage = _finish;
+        }
     }
 
     template <class _Tp, class _Alloc>
@@ -240,21 +318,32 @@ namespace ft
     {
         // 1. 지우는 크기만큼 앞으로 당기기 (정방향 copy)
         // 2. 지우는 크기만큼 끝에서 destroy
-        size_t len = last - first;
-        copy(last + 1, end(), first);
-        destroy_range(end() - len, end());
+        difference_type n = ft::distance(first, last);
+        copy(last, end(), first);
+        destroy_range(end() - n, end());
+        _finish -= n;
         return first;
     }
 
     template <class _Tp, class _Alloc>
     void vector<_Tp, _Alloc>::resize(size_type new_size, const _Tp &x)
     {
-        if (new_size < size())
-            // new_size < size: 넘치는 만큼 destroy
-            erase(end() - (new_size - size()), end());
-        else
+        size_t old_size = size();
+        if (new_size > old_size)
+        {
             // new_size > size: 부족한 만큼 값 x 삽입
-            insert(end(), size() - new_size, x);
+            size_t add = new_size - old_size;
+            if (capacity() < new_size)
+                reserve(new_size);
+            ft::uninitialized_fill_n(begin() + old_size, add, x);
+        }
+        if (new_size < old_size)
+        {
+            // new_size < size: 넘치는 만큼 destroy
+            size_t del = old_size - new_size;
+            destroy_range(end() - del, end());
+        }
+        _finish = _start + new_size;
     }
 
     /* ------------------ Internal private methods ------------------  */
@@ -265,9 +354,10 @@ namespace ft
         // todo: 출력 메세지 수정
         if (n >= this->size())
         {
-            // std::ostringstream oss;
-            // oss << "error msg";
-            throw std::out_of_range("");
+            std::ostringstream oss;
+            oss << "vector::_M_range_check: __n (which is " << n << ") >= this->size() (which is "
+                << size() << ")";
+            throw std::out_of_range(oss.str());
         }
     }
 
@@ -296,6 +386,7 @@ namespace ft
     template <class _Tp, class _Alloc>
     void vector<_Tp, _Alloc>::_insert_aux(iterator pos, const _Tp &v)
     {
+        _Tp copy_v = v;
         if (_finish == _end_of_storage) // 공간 부족: 새로 할당 + 전체 copy
         {
             // 1. 새로 메모리 공간 할당
@@ -305,18 +396,21 @@ namespace ft
             size_t new_cap = _next_capacity(capacity());
             _Tp   *new_start = _allocate(new_cap);
             _Tp   *new_finish = new_start;
-            _Tp    copy_v = v;
             try
             {
-                // pos 이전
+                // pos 이전: [start, pos)
                 new_finish = ft::uninitialized_copy(_start, pos, new_start);
                 // pos
                 _construct(new_finish, copy_v);
                 ++new_finish;
-                // pos 이후
-                new_finish = ft::uninitialized_copy(pos + 1, end(), new_finish);
-                // 포인터 갱신
+                // pos 이후: [pos, end)
+                new_finish = ft::uninitialized_copy(pos, end(), new_finish);
+
+                // 후처리
+                destroy_range(_start, _finish);
+                _deallocate(_start, size());
                 _start = new_start;
+                _finish = new_finish;
                 _end_of_storage = _start + new_cap;
             }
             catch (...)
@@ -333,6 +427,7 @@ namespace ft
             _construct(_finish, v);
             ++_finish;
             ft::copy_backward(pos, _finish - 1, _finish);
+            *(pos) = copy_v;
         }
     }
 
