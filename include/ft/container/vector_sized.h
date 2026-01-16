@@ -23,6 +23,48 @@
     - operators (non-member)
 */
 
+// legacy utils
+namespace ft
+{
+    template <class _Alloc>
+    static typename _Alloc::value_type *uninitialized_fill(typename _Alloc::value_type *dest,
+                                                           typename _Alloc::value_type  value,
+                                                           size_t n, _Alloc &alloc)
+    {
+        typename _Alloc::value_type *cur = dest;
+        construct_guard<_Alloc>      guard(alloc, dest);
+
+        for (size_t i = 0; i < n; ++i)
+        {
+            alloc.construct(cur + i, value);
+            guard.bump();
+        }
+        // 만약 construct 중 실패시 c++ 예외 규칙에 의해 그 즉시 guard의 소멸자가 호출됨 (RAII)
+        guard.release();
+        return cur;
+    }
+
+    // value가 아닌 Allocator 타입이 템플릿 인자인 이유?
+    // -> 후자에서 전자를 유도 가능, 전자에서 후자 유도는 불가능 (policy 객체이기 때문에)
+    template <class _InputIt, class _Alloc>
+    static typename _Alloc::value_type *uninitialized_copy(_InputIt first, _InputIt last,
+                                                           typename _Alloc::value_type *dest,
+                                                           _Alloc                      &alloc)
+    {
+        typename _Alloc::value_type *cur = dest;
+        construct_guard<_Alloc>      guard(alloc, dest);
+
+        for (; first != last; ++first, ++cur)
+        {
+            alloc.construct(cur, *first);
+            guard.bump();
+        }
+        // 만약 construct 중 실패시 c++ 예외 규칙에 의해 그 즉시 guard의 소멸자가 호출됨 (RAII)
+        guard.release();
+        return cur;
+    }
+} // namespace ft
+
 namespace ft
 {
     /*
