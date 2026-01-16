@@ -28,7 +28,7 @@ namespace ft
                 (first + i)->~T();
             throw;
         }
-        return first;
+        return first + count;
     }
 } // namespace ft
 
