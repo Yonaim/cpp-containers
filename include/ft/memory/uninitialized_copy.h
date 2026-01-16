@@ -19,8 +19,9 @@ namespace ft
     template <class InputIt, class NoThrowForwardIt>
     NoThrowForwardIt uninitialized_copy(InputIt first, InputIt last, NoThrowForwardIt d_first)
     {
-        typedef typename iterator_traits<InputIt>::value_type T;
-        NoThrowForwardIt                             cur = d_first;
+        // input이 아닌 목적지의 타입을 사용하는 것이 맞음
+        typedef typename iterator_traits<NoThrowForwardIt>::value_type T;
+        NoThrowForwardIt                                               cur = d_first;
 
         try
         {
@@ -43,6 +44,32 @@ namespace ft
         }
     }
 
+    template <class InputIt, class NoThrowForwardIt>
+    NoThrowForwardIt uninitialized_copy_backward(InputIt first, InputIt last, NoThrowForwardIt d_last)
+    {
+        typedef typename iterator_traits<NoThrowForwardIt>::value_type T;
+        NoThrowForwardIt                                               cur = d_last;
+
+        try
+        {
+            while (first != last)
+            {
+                --cur;
+                --last;
+                ::new (cur) T(*last);
+            }
+            return cur;
+        }
+        catch (...)
+        {
+            while (d_last != cur)
+            {
+                d_last->~T();
+                --d_last;
+            }
+            throw;
+        }
+    }
 } // namespace ft
 
 #endif
