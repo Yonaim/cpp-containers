@@ -682,6 +682,27 @@ namespace ft
             return begin() + n;
         }
 
+        void _insert_aux(iterator position, bool x)
+        {
+            if (_finish._p != _end_of_storage)
+            {
+                ft::copy_backward(position, _finish, _finish + 1);
+                *position = x;
+                ++_finish;
+            }
+            else
+            {
+                size_type     len = size() ? 2 * size() : FT_WORD_BIT;
+                unsigned int *q = _bit_alloc(len);
+                iterator      i = ft::copy(begin(), position, iterator(q, 0));
+                *i++ = x;
+                _finish = copy(position, end(), i);
+                _deallocate();
+                _end_of_storage = q + (len + FT_WORD_BIT - 1) / FT_WORD_BIT;
+                _start = iterator(q, 0);
+            }
+        }
+
         void insert(iterator position, size_type n, bool x) { _fill_insert(position, n, x); }
 
         template <class _Integer>
