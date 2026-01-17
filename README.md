@@ -9,6 +9,7 @@ This project reproduces the public interface and behavior of standard containers
 algorithms, function objects).
 
 * Targets C++98 only (no post-C++98 STL additions).
+* Development period: October 2025 – January 2026
 
 ## Why this project
 
