@@ -86,12 +86,7 @@ namespace ft
 
 // =============================== Bit_iterator ================================
 
-/*
-    명세상
-    - iterator는
-    - const iterator는 bool 타입
-
-*/
+// 명세상 const iterator는 bool 타입
 namespace ft
 {
     struct _Bit_iterator_base : public ft::random_access_iterator<bool, ptrdiff_t>
@@ -124,18 +119,21 @@ namespace ft
             else
                 --_offset;
         }
-        void _incr(ptrdiff_t i)
+        void _incr(difference_type i)
         {
-            difference_type n = i + _offset; // signed
-            _p += n / FT_WORD_BIT;
-            n %= FT_WORD_BIT;
+            // FT_WORD_BIT가 unsigned라서 FT_WORD_BIT 포함 계산시 결과가 unsigned가 될 수 있음
+            // 따라서 signed로 형변환하여 사용
+            const int       W = (int)FT_WORD_BIT;
+            difference_type n = i + (difference_type)_offset;
+            _p += n / W;
+            n %= W;
+
             if (n < 0)
             {
-                _offset = (unsigned int)(n + FT_WORD_BIT);
+                n += W;
                 --_p;
             }
-            else
-                _offset = (unsigned int)n;
+            _offset = (unsigned int)n;
         }
 
         bool operator==(const _Bit_iterator_base &i) const
