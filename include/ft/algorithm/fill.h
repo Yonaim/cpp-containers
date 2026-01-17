@@ -2,6 +2,7 @@
 #define FT_FILL_H
 
 // std::fill을 참조
+#include <cstddef>
 
 namespace ft
 {
