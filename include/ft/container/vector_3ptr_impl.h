@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include "ft_memory.h"
+#include "utility.h"
 
 /*
     - base 클래스가 RAII로 메모리 관리를 해주지만, 소멸자 호출시 자동 정리되는 것은
@@ -351,14 +352,8 @@ namespace ft
     template <class _Tp, class _Alloc>
     void vector<_Tp, _Alloc>::_range_check(size_type n) const
     {
-        // todo: 출력 메세지 수정
         if (n >= this->size())
-        {
-            std::ostringstream oss;
-            oss << "vector::_M_range_check: __n (which is " << n << ") >= this->size() (which is "
-                << size() << ")";
-            throw std::out_of_range(oss.str());
-        }
+            ft::throw_out_of_range_index("vector", "_range_check", n, this->size());
     }
 
     // input iterator: 한번만 읽기 가능, 단방향 (++it만 됨)

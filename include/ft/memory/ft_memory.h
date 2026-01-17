@@ -4,6 +4,9 @@
 // standard alocator
 #include "allocator.h"
 
+// allocator traits
+#include "allocator_traits.h"
+
 // Uninitialized storage
 #include "construct_guard.h"
 #include "destroy_range.h"
