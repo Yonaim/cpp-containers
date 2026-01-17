@@ -88,7 +88,7 @@ Behavior parity checks against the standard library are done via a companion rep
 
 ### `ft::vector<bool>`
 
-* Bit-packed storage: logical size is in **bits**, while allocation is managed in **words** (`_M_end_of_storage` points to the end word).
+* Bit-packed storage: logical size is in bits, while allocation is managed in words (`_M_end_of_storage` points to the end word).
 * `operator[]` returns a proxy (`bit_reference`) to emulate `bool&` semantics over a single bit.
 * Iteration is performed via a `(word pointer + bit offset)` representation (`_M_start`, `_M_finish`).
 * Word-level operations are used where possible (e.g., fill/flip), with masking for partial words at boundaries.
@@ -107,7 +107,7 @@ Behavior parity checks against the standard library are done via a companion rep
 
 ### `allocator / common infrastructure`
 
-* Allocator storage uses a small base layer with a compile-time stateless/stateful branch so empty allocators can benefit from **EBO**, while stateful allocators are stored normally without changing the container API.
+* Allocator storage uses a small base layer with a compile-time stateless/stateful branch so empty allocators can benefit from EBO, while stateful allocators are stored normally without changing the container API.
 * Allocation and object lifetime are kept separate (allocate → `uninitialized_*`/construct → destroy → deallocate) to match STL-style lifetimes.
 * Iterator/category dispatch is used across range operations to keep behavior correct (and efficient) across iterator types.
 
