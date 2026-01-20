@@ -35,9 +35,7 @@ namespace ft
     class _Vector_alloc_base<_Tp, _Alloc, true> : private _Alloc
     {
       public:
-        // TODO: Alloc_traits를 이용하는게 정석임
-        // _Alloc이 _Tp 타입을 템플릿 인자로 받은 allocator 타입이라고 가정
-        typedef _Alloc allocator_type;
+        typedef typename _Alloc_traits<_Tp, _Alloc>::allocator_type allocator_type;
 
         allocator_type get_allocator() const { return allocator_type(); }
         _Vector_alloc_base(const allocator_type &a) { (void)a; }
@@ -76,10 +74,11 @@ namespace ft
 
     // RAII로 메모리 관리
     template <class _Tp, class _Alloc>
-    class _Vector_base : protected _Vector_alloc_base<_Tp, _Alloc, ft::is_empty<_Alloc>::value>
+    class _Vector_base
+        : protected _Vector_alloc_base<_Tp, _Alloc, _Alloc_traits<_Tp, _Alloc>::_instanceless>
     {
       private:
-        typedef _Vector_alloc_base<_Tp, _Alloc, ft::is_empty<_Alloc>::value> _Base;
+        typedef _Vector_alloc_base<_Tp, _Alloc, _Alloc_traits<_Tp, _Alloc>::_instanceless> _Base;
 
       protected:
         typedef typename _Base::allocator_type allocator_type;
