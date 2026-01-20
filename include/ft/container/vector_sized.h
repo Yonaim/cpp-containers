@@ -4,13 +4,14 @@
 #include <sstream>
 #include <stdexcept>
 #include "algorithm.h"
+#include "ft_memory.h"
 #include "iterator.h"
-#include "memory.h"
 #include "type_traits.h"
 
-// TODO: bool 타입에 대한 partial specialization
-// TODO: size_t -> size_type
-// TODO: base 클래스 나누고 분기처리하기
+
+/*
+    legacy version: size, capacity를 저장
+*/
 
 /*
     function types:
