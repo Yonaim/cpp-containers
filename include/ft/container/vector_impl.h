@@ -52,6 +52,15 @@ namespace ft
 
         2가 좀더 깔끔한 방법이다.
     */
+    /*
+        iterator_category와 같은 것을 typedef로 만들려고 시도할 때, '인스턴스화하는 과정에서' 에러.
+        SFINAE로 조용히 넘어가는게 아니라 하드 에러가 터진다.
+        하드 에러가 터지는 즉시 컴파일이 중단되므로 우아한 해결책이 아님.
+        (enable_if는 인스턴스는 생성되되 멤버만 없을 뿐으로, SFINAE로 취급)
+
+        그래서 타협안:
+        정수만 배제해서 (n, value)와 충돌만 막고 진짜 iterator 여부는 런타임 에러가 나게 둠
+    */
     template <class _Tp, class _Alloc>
     template <class _InputIt>
     vector<_Tp, _Alloc>::vector(
@@ -93,6 +102,13 @@ namespace ft
     // Increase the capacity of the vector
     // If new_cap is greater than the current capacity(), new storage is allocated,
     // otherwise the function does nothing.
+    /*
+        Trivially Copyable(자명하게 복사 가능한)
+        -객체를 메모리 블록 단위로 memcpy / memmove 같은 저수준 복사 함수로 옮겨도 안전하게 쓸 수
+       있는 타입
+        - POD(Plain Old Data)는 trivially copyable
+        - 모던 c++에 is_trivially_copyable 함수 존재
+    */
     template <class _Tp, class _Alloc>
     void vector<_Tp, _Alloc>::reserve(size_type new_cap)
     {
@@ -205,6 +221,19 @@ namespace ft
     }
 
     // range insert
+    /*
+        iterator의 tag에 따라 분기 처리
+        (1) Input iterator
+            - distance 계산 & multi-pass 둘다 불가능
+            - 하나씩 insert() 해야함.
+            - insert()는 O(n)이고 이것을 n번 실행, 즉 O(n^2)
+        (2) Forward & Bidirectional iterator
+            - distance 계산 O(n)에 가능
+            - 이후 O(n) 처리 가능
+        (3) Random Access
+            - distance 계산 O(1)에 가능
+            - 이후 O(n) 처리 가능
+    */
     template <class _Tp, class _Alloc>
     template <class _InputIt>
     void vector<_Tp, _Alloc>::insert(
@@ -378,6 +407,32 @@ namespace ft
 
     static inline size_t _next_capacity(size_t old_cap) { return old_cap == 0 ? 1 : old_cap * 2; }
 
+    /*
+        미리 destroy하고 reverse 이터레이터를 인자로 uninitialized_copy() 호출하는 방식은 안되는
+       이유???
+        -> exception-safety 만족을 위해서는 미리 destroy를 하면 안된다.
+            (destroy는 되돌릴 수 없는 연산!)
+
+        가능하면 assignment(대입)을 한다.
+        - copy constructor와 copy assignment는 전혀 다름
+        - assignment시, 객체를 파괴/새로 생성하지 않고 현재 객체의 값만 교체해주면 됨
+        - 이미 살아 있는 객체에 '=' 로 값을 덮어쓰는 것
+        - exception-safety 및 객체 수명 관리자 차원에서의 컨테이너의 의의를 준수
+    */
+    /*
+        [ 0 ........ size-1 ]   initialized
+        [ size ..... capacity-1 ] uninitialized
+
+        1) [0, size) : initialized
+        2) [idx, size) : initialized
+        3) [size, capacity) : uninitialized
+
+        - 하나만 삽입하는 함수이므로 construct는 1회만 이루어짐 (reserve가 필요한 경우 제외)
+        - [0, idx)는 건들지 않음
+        - [idx, size)를 하나씩 뒤로 미룸
+        - [size]를 제외하고는 이미 객체가 생성되어 있는 상태이므로 initialize할 필요 x
+    */
+    // pos > size인 경우는 UB (range-checked 함수가 아님)
     template <class _Tp, class _Alloc>
     void vector<_Tp, _Alloc>::_insert_aux(iterator pos, const _Tp &v)
     {
